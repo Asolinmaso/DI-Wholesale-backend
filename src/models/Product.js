@@ -4,6 +4,10 @@ const ProductSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
     description: { type: String, default: "" },
+    productSize: { type: String, default: "" },
+    productShape: { type: String, default: "" },
+    minimumQuantity: { type: Number, default: 0 },
+    material: { type: String, default: "" },
     categoryId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Category",
