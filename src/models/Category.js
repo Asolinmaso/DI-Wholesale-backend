@@ -4,7 +4,7 @@ const CategorySchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
     slug: { type: String, required: true, unique: true, index: true },
-    image: { type: String, default: "" } // relative path, e.g. /uploads/...
+    images: { type: [String], default: [] } // relative paths, e.g. /uploads/...
   },
   { timestamps: true }
 )

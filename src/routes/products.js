@@ -30,10 +30,14 @@ router.post("/:id/sub-products", upload.array("images", 10), async (req, res) =>
   const created = await SubProduct.create({
     productId: req.params.id,
     name,
-    sku: String(req.body?.sku || ""),
-    price: Number(req.body?.price || 0),
-    stockCount: Number(req.body?.stockCount || 0),
     images,
+    productSize: String(req.body?.productSize || ""),
+    productShape: String(req.body?.productShape || ""),
+    minimumQuantity: Number(req.body?.minimumQuantity || 0),
+    material: String(req.body?.material || ""),
+    description: String(req.body?.description || ""),
+    composition: String(req.body?.composition || ""),
+    packing: String(req.body?.packing || ""),
   })
 
   res.status(201).json({ data: created })
@@ -42,9 +46,13 @@ router.post("/:id/sub-products", upload.array("images", 10), async (req, res) =>
 router.put("/:id/sub-products/:subId", upload.array("images", 10), async (req, res) => {
   const patch = {}
   if (req.body?.name !== undefined) patch.name = String(req.body.name).trim()
-  if (req.body?.sku !== undefined) patch.sku = String(req.body.sku)
-  if (req.body?.price !== undefined) patch.price = Number(req.body.price || 0)
-  if (req.body?.stockCount !== undefined) patch.stockCount = Number(req.body.stockCount || 0)
+  if (req.body?.productSize !== undefined) patch.productSize = String(req.body.productSize)
+  if (req.body?.productShape !== undefined) patch.productShape = String(req.body.productShape)
+  if (req.body?.minimumQuantity !== undefined) patch.minimumQuantity = Number(req.body.minimumQuantity || 0)
+  if (req.body?.material !== undefined) patch.material = String(req.body.material)
+  if (req.body?.description !== undefined) patch.description = String(req.body.description)
+  if (req.body?.composition !== undefined) patch.composition = String(req.body.composition)
+  if (req.body?.packing !== undefined) patch.packing = String(req.body.packing)
   if (Array.isArray(req.files) && req.files.length > 0) {
     patch.images = req.files.map((f) => toPublicUploadPath(f))
   }

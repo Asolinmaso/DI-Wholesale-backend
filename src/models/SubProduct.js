@@ -9,10 +9,14 @@ const SubProductSchema = new mongoose.Schema(
       index: true,
     },
     name: { type: String, required: true, trim: true },
-    sku: { type: String, default: "" },
-    price: { type: Number, default: 0 },
-    stockCount: { type: Number, default: 0 },
-    images: { type: [String], default: [] }
+    images: { type: [String], default: [] },
+    productSize: { type: String, default: "" },
+    productShape: { type: String, default: "" },
+    minimumQuantity: { type: Number, default: 0 },
+    material: { type: String, default: "" },
+    description: { type: String, default: "" },
+    composition: { type: String, default: "" },
+    packing: { type: String, default: "" }
   },
   { timestamps: true }
 )
