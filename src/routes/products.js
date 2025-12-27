@@ -1,7 +1,7 @@
 const express = require("express")
 const Product = require("../models/Product")
 const SubProduct = require("../models/SubProduct")
-const { upload, toPublicUploadPath } = require("../middleware/upload")
+const { uploadFields, processUploads } = require("../middleware/upload")
 
 const router = express.Router()
 
@@ -19,12 +19,12 @@ router.get("/:id/sub-products", async (req, res) => {
   res.json({ data: items })
 })
 
-router.post("/:id/sub-products", upload.array("images", 10), async (req, res) => {
+router.post("/:id/sub-products", uploadFields, processUploads, async (req, res) => {
   const name = String(req.body?.name || "").trim()
   if (!name) return res.status(400).json({ error: "name is required" })
 
-  const images = Array.isArray(req.files)
-    ? req.files.map((f) => toPublicUploadPath(f))
+  const images = Array.isArray(req.body.images)
+    ? req.body.images // Cloudinary URLs from processUploads
     : []
 
   const created = await SubProduct.create({
@@ -43,7 +43,7 @@ router.post("/:id/sub-products", upload.array("images", 10), async (req, res) =>
   res.status(201).json({ data: created })
 })
 
-router.put("/:id/sub-products/:subId", upload.array("images", 10), async (req, res) => {
+router.put("/:id/sub-products/:subId", uploadFields, processUploads, async (req, res) => {
   const patch = {}
   if (req.body?.name !== undefined) patch.name = String(req.body.name).trim()
   if (req.body?.productSize !== undefined) patch.productSize = String(req.body.productSize)
@@ -53,8 +53,8 @@ router.put("/:id/sub-products/:subId", upload.array("images", 10), async (req, r
   if (req.body?.description !== undefined) patch.description = String(req.body.description)
   if (req.body?.composition !== undefined) patch.composition = String(req.body.composition)
   if (req.body?.packing !== undefined) patch.packing = String(req.body.packing)
-  if (Array.isArray(req.files) && req.files.length > 0) {
-    patch.images = req.files.map((f) => toPublicUploadPath(f))
+  if (Array.isArray(req.body.images) && req.body.images.length > 0) {
+    patch.images = req.body.images // Cloudinary URLs from processUploads
   }
 
   const updated = await SubProduct.findOneAndUpdate(
@@ -82,14 +82,14 @@ router.get("/:id", async (req, res) => {
   res.json({ data: product })
 })
 
-router.post("/", upload.array("images", 10), async (req, res) => {
+router.post("/", uploadFields, processUploads, async (req, res) => {
   const name = String(req.body?.name || "").trim()
   const categoryId = String(req.body?.categoryId || "").trim()
   if (!name) return res.status(400).json({ error: "name is required" })
   if (!categoryId) return res.status(400).json({ error: "categoryId is required" })
 
-  const images = Array.isArray(req.files)
-    ? req.files.map((f) => toPublicUploadPath(f))
+  const images = Array.isArray(req.body.images)
+    ? req.body.images // Cloudinary URLs from processUploads
     : []
 
   const product = await Product.create({
@@ -108,7 +108,7 @@ router.post("/", upload.array("images", 10), async (req, res) => {
   res.status(201).json({ data: product })
 })
 
-router.put("/:id", upload.array("images", 10), async (req, res) => {
+router.put("/:id", uploadFields, processUploads, async (req, res) => {
   const patch = {}
   if (req.body?.name !== undefined) patch.name = String(req.body.name).trim()
   if (req.body?.description !== undefined) patch.description = String(req.body.description)
@@ -120,8 +120,8 @@ router.put("/:id", upload.array("images", 10), async (req, res) => {
   if (req.body?.price !== undefined) patch.price = Number(req.body.price || 0)
   if (req.body?.stockCount !== undefined) patch.stockCount = Number(req.body.stockCount || 0)
 
-  if (Array.isArray(req.files) && req.files.length > 0) {
-    patch.images = req.files.map((f) => toPublicUploadPath(f))
+  if (Array.isArray(req.body.images) && req.body.images.length > 0) {
+    patch.images = req.body.images // Cloudinary URLs from processUploads
   }
 
   const updated = await Product.findByIdAndUpdate(req.params.id, patch, { new: true })
