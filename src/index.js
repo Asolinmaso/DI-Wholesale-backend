@@ -37,6 +37,7 @@ async function main() {
   app.use("/api/auth", require("./routes/auth"))
   app.use("/api/categories", categoriesRouter)
   app.use("/api/products", productsRouter)
+  app.use("/api/orders", require("./routes/orders"))
 
   // basic error handler
   // eslint-disable-next-line no-unused-vars
