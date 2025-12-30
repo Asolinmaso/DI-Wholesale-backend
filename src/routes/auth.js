@@ -1,5 +1,5 @@
 const express = require("express")
-const nodemailer = require("nodemailer")
+const { sendOTP } = require("../utils/email")
 const { env } = require("../env")
 
 const router = express.Router()
@@ -7,20 +7,7 @@ const router = express.Router()
 // In-memory store for OTPs (in production, use Redis or database)
 const otpStore = new Map() // email -> { otp, expiresAt }
 
-// Email transporter configuration
-const createTransporter = () => {
-  // For development/testing, you can use Gmail or other SMTP services
-  // For production, use services like SendGrid, AWS SES, etc.
-
-  // Using Gmail SMTP (you'll need to enable "Less secure app access" or use App Passwords)
-  return nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: process.env.EMAIL_USER || 'your-email@gmail.com',
-      pass: process.env.EMAIL_PASS || 'your-app-password'
-    }
-  })
-}
+// Email sending is now handled by Resend (see utils/email.js)
 
 // Generate 6-digit OTP
 function generateOTP() {
@@ -64,33 +51,8 @@ router.post("/send-otp", async (req, res) => {
   otpStore.set(email, { otp, expiresAt })
 
   try {
-    // Send OTP via email
-    const transporter = createTransporter()
-
-    const mailOptions = {
-      from: process.env.EMAIL_USER || 'noreply@di-wholesale.com',
-      to: email,
-      subject: 'DI Wholesale Admin Login OTP',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <h2 style="color: #7B00E0; text-align: center;">DI Wholesale Admin Login</h2>
-          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
-            <h3 style="color: #333; margin-top: 0;">Your One-Time Password (OTP)</h3>
-            <p style="font-size: 24px; font-weight: bold; color: #7B00E0; text-align: center; letter-spacing: 4px;">
-              ${otp}
-            </p>
-            <p style="color: #666; margin-bottom: 0;">
-              This OTP is valid for 10 minutes. Please use it to complete your login.
-            </p>
-          </div>
-          <p style="color: #999; font-size: 12px; text-align: center;">
-            If you didn't request this OTP, please ignore this email.
-          </p>
-        </div>
-      `
-    }
-
-    await transporter.sendMail(mailOptions)
+    // Send OTP via Resend
+    await sendOTP(email, otp)
     console.log(`OTP email sent to ${email}: ${otp}`)
 
     res.json({

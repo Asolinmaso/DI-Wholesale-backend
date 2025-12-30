@@ -5,17 +5,59 @@ const { uploadFields, processUploads } = require("../middleware/upload")
 
 const router = express.Router()
 
-router.get("/", async (_req, res) => {
-  const categories = await Category.find({}).sort({ createdAt: -1 }).lean()
-  // Normalize old data: convert image (singular) to images (array) if needed
-  const normalized = categories.map((cat) => {
-    if (cat.image && (!cat.images || cat.images.length === 0)) {
-      cat.images = [cat.image]
-      delete cat.image
+router.get("/", async (req, res) => {
+  try {
+    const q = {}
+    if (req.query.search) {
+      q.name = { $regex: req.query.search, $options: 'i' }
     }
-    return cat
-  })
-  res.json({ data: normalized })
+
+    // Pagination parameters
+    const page = parseInt(req.query.page) || 1
+    const limit = parseInt(req.query.limit) || 12 // Default 12 categories per page
+    const skip = (page - 1) * limit
+
+    // Get total count for pagination info
+    const total = await Category.countDocuments(q)
+
+    // Get paginated categories
+    const categories = await Category.find(q)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean()
+
+    // Normalize old data: convert image (singular) to images (array) if needed
+    const normalized = categories.map((cat) => {
+      if (cat.image && (!cat.images || cat.images.length === 0)) {
+        cat.images = [cat.image]
+        delete cat.image
+      }
+      return cat
+    })
+
+    // Calculate pagination info
+    const totalPages = Math.ceil(total / limit)
+    const hasNextPage = page < totalPages
+    const hasPrevPage = page > 1
+
+    res.json({
+      data: normalized,
+      pagination: {
+        currentPage: page,
+        totalPages,
+        totalProducts: total,
+        productsPerPage: limit,
+        hasNextPage,
+        hasPrevPage,
+        nextPage: hasNextPage ? page + 1 : null,
+        prevPage: hasPrevPage ? page - 1 : null
+      }
+    })
+  } catch (error) {
+    console.error('Error fetching categories:', error)
+    res.status(500).json({ error: 'Failed to fetch categories' })
+  }
 })
 
 router.post("/", uploadFields, processUploads, async (req, res) => {

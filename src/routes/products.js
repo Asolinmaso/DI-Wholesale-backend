@@ -5,11 +5,15 @@ const { uploadFields, processUploads } = require("../middleware/upload")
 
 const router = express.Router()
 
-// List products (optionally filter by categoryId) with pagination
+// List products (optionally filter by categoryId) with pagination and search
 router.get("/", async (req, res) => {
   try {
     const q = {}
     if (req.query.categoryId) q.categoryId = req.query.categoryId
+    if (req.query.search && req.query.search.trim()) {
+      const searchTerm = req.query.search.trim()
+      q.name = { $regex: searchTerm, $options: 'i' }
+    }
 
     // Pagination parameters
     const page = parseInt(req.query.page) || 1
@@ -50,19 +54,100 @@ router.get("/", async (req, res) => {
   }
 })
 
+// Get all sub-products with category and subcategory info (for admin products tab)
+// This route MUST come before /:id/sub-products to prevent route conflicts
+router.get("/all/sub-products", async (req, res) => {
+  try {
+    const q = {}
+    
+    // Search filter
+    if (req.query.search && req.query.search.trim()) {
+      const searchTerm = req.query.search.trim()
+      q.name = { $regex: searchTerm, $options: 'i' }
+    }
+    
+    // Category filter
+    if (req.query.categoryId) {
+      // Find all products in this category, then get their sub-products
+      const products = await Product.find({ categoryId: req.query.categoryId }).select('_id')
+      q.productId = { $in: products.map(p => p._id) }
+    }
+    
+    // Sub-category (Product) filter
+    if (req.query.productId && req.query.productId !== 'all') {
+      // Only filter by productId if it's a valid ObjectId (not 'all')
+      const mongoose = require('mongoose')
+      if (mongoose.Types.ObjectId.isValid(req.query.productId)) {
+        q.productId = req.query.productId
+      }
+    }
+
+    // Pagination parameters
+    const page = parseInt(req.query.page) || 1
+    const limit = parseInt(req.query.limit) || 12
+    const skip = (page - 1) * limit
+
+    // Get total count
+    const total = await SubProduct.countDocuments(q)
+
+    // Get paginated sub-products with populated product and category info
+    const items = await SubProduct.find(q)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate({
+        path: 'productId',
+        select: 'name categoryId',
+        populate: {
+          path: 'categoryId',
+          select: 'name slug'
+        }
+      })
+      .lean()
+
+    // Calculate pagination info
+    const totalPages = Math.ceil(total / limit)
+    const hasNextPage = page < totalPages
+    const hasPrevPage = page > 1
+
+    res.json({
+      data: items,
+      pagination: {
+        currentPage: page,
+        totalPages,
+        totalProducts: total,
+        productsPerPage: limit,
+        hasNextPage,
+        hasPrevPage,
+        nextPage: hasNextPage ? page + 1 : null,
+        prevPage: hasPrevPage ? page - 1 : null
+      }
+    })
+  } catch (error) {
+    console.error('Error fetching all sub-products:', error)
+    res.status(500).json({ error: 'Failed to fetch sub-products' })
+  }
+})
+
 // Sub-products routes MUST come before /:id routes to prevent route conflicts
 router.get("/:id/sub-products", async (req, res) => {
   try {
+    const q = { productId: req.params.id }
+    if (req.query.search && req.query.search.trim()) {
+      const searchTerm = req.query.search.trim()
+      q.name = { $regex: searchTerm, $options: 'i' }
+    }
+
     // Pagination parameters
     const page = parseInt(req.query.page) || 1
     const limit = parseInt(req.query.limit) || 12 // Default 12 sub-products per page
     const skip = (page - 1) * limit
 
     // Get total count for pagination info
-    const total = await SubProduct.countDocuments({ productId: req.params.id })
+    const total = await SubProduct.countDocuments(q)
 
     // Get paginated sub-products
-    const items = await SubProduct.find({ productId: req.params.id })
+    const items = await SubProduct.find(q)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
@@ -118,8 +203,8 @@ router.post("/:id/sub-products", uploadFields, processUploads, async (req, res) 
     productId: req.params.id,
     name,
     images,
-    productSize: String(req.body?.productSize || ""),
-    productShape: String(req.body?.productShape || ""),
+    productSize: req.body?.productSize ? JSON.parse(req.body.productSize) : [],
+    productShape: req.body?.productShape ? JSON.parse(req.body.productShape) : [],
     minimumQuantity: 10, // Always 10 for users
     stockCount: Number(req.body?.stockCount || 0), // Stocks field
     material: String(req.body?.material || ""),
@@ -134,8 +219,8 @@ router.post("/:id/sub-products", uploadFields, processUploads, async (req, res) 
 router.put("/:id/sub-products/:subId", uploadFields, processUploads, async (req, res) => {
   const patch = {}
   if (req.body?.name !== undefined) patch.name = String(req.body.name).trim()
-  if (req.body?.productSize !== undefined) patch.productSize = String(req.body.productSize)
-  if (req.body?.productShape !== undefined) patch.productShape = String(req.body.productShape)
+  if (req.body?.productSize !== undefined) patch.productSize = JSON.parse(req.body.productSize)
+  if (req.body?.productShape !== undefined) patch.productShape = JSON.parse(req.body.productShape)
   patch.minimumQuantity = 10 // Always 10 for users
   if (req.body?.stockCount !== undefined) patch.stockCount = Number(req.body.stockCount || 0) // Stocks field
   if (req.body?.material !== undefined) patch.material = String(req.body.material)
@@ -199,8 +284,8 @@ router.post("/", uploadFields, processUploads, async (req, res) => {
   const product = await Product.create({
     name,
     description: String(req.body?.description || ""),
-    productSize: String(req.body?.productSize || ""),
-    productShape: String(req.body?.productShape || ""),
+    productSize: req.body?.productSize ? JSON.parse(req.body.productSize) : [],
+    productShape: req.body?.productShape ? JSON.parse(req.body.productShape) : [],
     minimumQuantity: Number(req.body?.minimumQuantity || 0),
     material: String(req.body?.material || ""),
     categoryId,
@@ -216,8 +301,8 @@ router.put("/:id", uploadFields, processUploads, async (req, res) => {
   const patch = {}
   if (req.body?.name !== undefined) patch.name = String(req.body.name).trim()
   if (req.body?.description !== undefined) patch.description = String(req.body.description)
-  if (req.body?.productSize !== undefined) patch.productSize = String(req.body.productSize)
-  if (req.body?.productShape !== undefined) patch.productShape = String(req.body.productShape)
+  if (req.body?.productSize !== undefined) patch.productSize = JSON.parse(req.body.productSize)
+  if (req.body?.productShape !== undefined) patch.productShape = JSON.parse(req.body.productShape)
   if (req.body?.minimumQuantity !== undefined) patch.minimumQuantity = Number(req.body.minimumQuantity || 0)
   if (req.body?.material !== undefined) patch.material = String(req.body.material)
   if (req.body?.categoryId !== undefined) patch.categoryId = String(req.body.categoryId).trim()
