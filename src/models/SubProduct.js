@@ -12,7 +12,8 @@ const SubProductSchema = new mongoose.Schema(
     images: { type: [String], default: [] },
     productSize: { type: String, default: "" },
     productShape: { type: String, default: "" },
-    minimumQuantity: { type: Number, default: 0 },
+    minimumQuantity: { type: Number, default: 10 }, // Always 10 for users
+    stockCount: { type: Number, default: 0 }, // Stocks field
     material: { type: String, default: "" },
     description: { type: String, default: "" },
     composition: { type: String, default: "" },

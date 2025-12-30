@@ -18,7 +18,8 @@ async function main() {
   app.use(express.json({ limit: "2mb" }))
   app.use(express.urlencoded({ extended: true }))
 
-  // Images are now served from Cloudinary, no local static files needed
+  // Serve static files from public directory (for fallback images)
+  app.use(express.static(require('path').join(__dirname, '..', '..', '..', 'public')))
 
   app.get("/health", (_req, res) => res.json({ ok: true }))
 
