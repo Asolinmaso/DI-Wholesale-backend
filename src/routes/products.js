@@ -5,18 +5,91 @@ const { uploadFields, processUploads } = require("../middleware/upload")
 
 const router = express.Router()
 
-// List products (optionally filter by categoryId)
+// List products (optionally filter by categoryId) with pagination
 router.get("/", async (req, res) => {
-  const q = {}
-  if (req.query.categoryId) q.categoryId = req.query.categoryId
-  const products = await Product.find(q).sort({ createdAt: -1 }).lean()
-  res.json({ data: products })
+  try {
+    const q = {}
+    if (req.query.categoryId) q.categoryId = req.query.categoryId
+
+    // Pagination parameters
+    const page = parseInt(req.query.page) || 1
+    const limit = parseInt(req.query.limit) || 12 // Default 12 products per page
+    const skip = (page - 1) * limit
+
+    // Get total count for pagination info
+    const total = await Product.countDocuments(q)
+
+    // Get paginated products
+    const products = await Product.find(q)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean()
+
+    // Calculate pagination info
+    const totalPages = Math.ceil(total / limit)
+    const hasNextPage = page < totalPages
+    const hasPrevPage = page > 1
+
+    res.json({
+      data: products,
+      pagination: {
+        currentPage: page,
+        totalPages,
+        totalProducts: total,
+        productsPerPage: limit,
+        hasNextPage,
+        hasPrevPage,
+        nextPage: hasNextPage ? page + 1 : null,
+        prevPage: hasPrevPage ? page - 1 : null
+      }
+    })
+  } catch (error) {
+    console.error('Error fetching products:', error)
+    res.status(500).json({ error: 'Failed to fetch products' })
+  }
 })
 
 // Sub-products routes MUST come before /:id routes to prevent route conflicts
 router.get("/:id/sub-products", async (req, res) => {
-  const items = await SubProduct.find({ productId: req.params.id }).sort({ createdAt: -1 }).lean()
-  res.json({ data: items })
+  try {
+    // Pagination parameters
+    const page = parseInt(req.query.page) || 1
+    const limit = parseInt(req.query.limit) || 12 // Default 12 sub-products per page
+    const skip = (page - 1) * limit
+
+    // Get total count for pagination info
+    const total = await SubProduct.countDocuments({ productId: req.params.id })
+
+    // Get paginated sub-products
+    const items = await SubProduct.find({ productId: req.params.id })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean()
+
+    // Calculate pagination info
+    const totalPages = Math.ceil(total / limit)
+    const hasNextPage = page < totalPages
+    const hasPrevPage = page > 1
+
+    res.json({
+      data: items,
+      pagination: {
+        currentPage: page,
+        totalPages,
+        totalProducts: total,
+        productsPerPage: limit,
+        hasNextPage,
+        hasPrevPage,
+        nextPage: hasNextPage ? page + 1 : null,
+        prevPage: hasPrevPage ? page - 1 : null
+      }
+    })
+  } catch (error) {
+    console.error('Error fetching sub-products:', error)
+    res.status(500).json({ error: 'Failed to fetch sub-products' })
+  }
 })
 
 router.post("/:id/sub-products", uploadFields, processUploads, async (req, res) => {
